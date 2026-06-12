@@ -3,7 +3,9 @@
 Two self-contained, browser-based tools for working with fMRI block-design paradigm files (the XML format with a main `.xml` + `_trials.xml` + `_slides_*.xml` + `Defaults_*.xml` + `Pictures/`). Everything runs locally in your browser — nothing is installed and nothing is uploaded.
 
 - **`ParadigmViewer.html`** — preview a paradigm and test its **timing** and **image sizing** before you load it on the scanner.
+          https://mika-vafaie-janbahan.github.io/fmri-paradigm-tools/ParadigmViewer.html
 - **`ParadigmEditor.html`** — edit a paradigm (block design, timing, trials, slide text/pictures, sizing, colours, contrasts) and **export** a complete, scanner-ready folder.
+          https://mika-vafaie-janbahan.github.io/fmri-paradigm-tools/ParadigmEditor.html
 - **`check-timing.mjs`** — a command-line companion that batch-checks the timing of every paradigm under a folder.
 
 These are independent helper tools. They are not affiliated with, or produced by, any scanner-software vendor.
