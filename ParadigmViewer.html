@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fMRI Paradigm Viewer — timing &amp; sizing</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2230; --line:#2b3242;
+    --fg:#e6edf3; --mut:#8b97a8; --accent:#4aa3ff; --accent2:#7ee0c0;
+    --ok:#3fb950; --warn:#d29922; --bad:#f85149; --active:#3b6fd4; --rest:#394150;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.45}
+  header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:linear-gradient(180deg,#11161e,#0e1116)}
+  header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.2px}
+  header h1 .sub{color:var(--mut);font-weight:400;margin-left:8px;font-size:12px}
+  .grow{flex:1}
+  button,select,input{font-family:inherit;font-size:13px;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 10px}
+  button{cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#031018;border-color:var(--accent);font-weight:600}
+  button.ghost{background:transparent}
+  label{color:var(--mut);font-size:12px}
+  a{color:var(--accent)}
+  .wrap{padding:18px 20px;max-width:1280px;margin:0 auto}
+
+  /* Drop zone */
+  #drop{border:2px dashed var(--line);border-radius:14px;padding:46px 24px;text-align:center;color:var(--mut);background:var(--panel);transition:.15s}
+  #drop.hot{border-color:var(--accent);background:#11202e;color:var(--fg)}
+  #drop h2{margin:0 0 8px;color:var(--fg);font-weight:600}
+  #drop .big{font-size:40px;margin-bottom:6px}
+  #drop code{font-family:var(--mono);background:#0c0f14;padding:1px 6px;border-radius:5px;color:var(--accent2)}
+
+  .row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .tabs{display:flex;gap:4px;margin:18px 0 14px;border-bottom:1px solid var(--line)}
+  .tabs button{background:transparent;border:none;border-bottom:2px solid transparent;border-radius:0;color:var(--mut);padding:9px 14px;font-size:13.5px}
+  .tabs button.on{color:var(--fg);border-bottom-color:var(--accent)}
+  .tab{display:none}.tab.on{display:block}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .card .k{color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+  .card .v{font-size:22px;font-weight:650;margin-top:3px;font-variant-numeric:tabular-nums}
+  .card .v small{font-size:12px;color:var(--mut);font-weight:400}
+
+  .banner{border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;gap:12px;align-items:flex-start;border:1px solid}
+  .banner.ok{background:#0f2417;border-color:#1e6b34;color:#aee4bc}
+  .banner.bad{background:#2a1416;border-color:#7a2a2a;color:#f6b7b3}
+  .banner.warn{background:#2a2310;border-color:#7a5e1e;color:#f0d79a}
+  .banner .ic{font-size:20px;line-height:1}
+  .banner b{color:#fff}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+  .panel h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0;background:var(--panel)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono)}
+  .scroll{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  tr:hover td{background:#11161e}
+  .pill{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11.5px;font-weight:600}
+  .pill.active{background:#16335f;color:#9cc4ff}
+  .pill.rest{background:#272d3a;color:#aeb7c6}
+  .pill.ok{background:#123a20;color:#7ee29a}
+  .pill.warn{background:#3a2f10;color:#f0d79a}
+  .pill.bad{background:#3a1616;color:#f6a8a3}
+  .mono{font-family:var(--mono)}
+  .mut{color:var(--mut)}
+
+  /* timeline svg */
+  .tl{width:100%;background:#0c0f14;border:1px solid var(--line);border-radius:8px}
+  .legend{display:flex;gap:16px;margin:8px 2px 0;font-size:12px;color:var(--mut)}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  /* screen preview */
+  .screenwrap{display:flex;gap:18px;flex-wrap:wrap}
+  .screenbox{flex:1;min-width:300px}
+  .screen{background:#000;border:1px solid var(--line);border-radius:6px;width:100%;display:block}
+  .galler{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:6px}
+  .thumb{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#0c0f14}
+  .thumb .cap{padding:5px 8px;font-size:11px;display:flex;justify-content:space-between;gap:6px;align-items:center}
+  .thumb canvas{display:block;width:100%;background:#000}
+
+  /* playback */
+  #player{display:block;width:100%;max-width:760px;margin:0 auto;background:#000;border:1px solid var(--line);border-radius:8px}
+  .transport{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px;justify-content:center}
+  .transport input[type=range]{width:min(540px,70vw)}
+  .nowinfo{display:flex;gap:18px;justify-content:center;margin-top:8px;font-size:13px;color:var(--mut);flex-variant-numeric:tabular-nums;flex-wrap:wrap}
+  .nowinfo b{color:var(--fg);font-variant-numeric:tabular-nums}
+  .err{color:var(--bad);font-family:var(--mono);font-size:12px;white-space:pre-wrap}
+  details summary{cursor:pointer;color:var(--mut)}
+  .hint{font-size:12px;color:var(--mut);margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>fMRI Paradigm Viewer <span class="sub">block-design timing &amp; sizing tester</span></h1>
+  <div class="grow"></div>
+  <div class="row" id="paradigmPicker" style="display:none">
+    <label>Paradigm</label><select id="selParadigm"></select>
+    <button class="ghost" id="btnReload">Load another folder…</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- LOADER -->
+  <div id="loader">
+    <div id="drop">
+      <div class="big">🧠⏱️</div>
+      <h2>Drop an fMRI paradigm folder here</h2>
+      <p>or <button class="primary" id="btnPick">Choose folder…</button></p>
+      <p class="hint">Pick a single paradigm folder (the one containing the main <code>.xml</code> + <code>_trials.xml</code> + <code>_slides_*.xml</code> + <code>Pictures/</code>),
+         or a parent folder holding several — every paradigm found is listed in the picker. Everything runs locally in your browser; nothing is uploaded.</p>
+      <input type="file" id="fileInput" webkitdirectory directory multiple style="display:none">
+    </div>
+    <div id="loadErr" class="err" style="margin-top:12px"></div>
+  </div>
+
+  <!-- APP -->
+  <div id="app" style="display:none">
+    <div class="tabs">
+      <button data-tab="timing" class="on">⏱️ Timing</button>
+      <button data-tab="sizing">📐 Sizing</button>
+      <button data-tab="play">▶️ Playback</button>
+      <button data-tab="raw">🗂️ Structure</button>
+    </div>
+
+    <!-- TIMING -->
+    <section class="tab on" id="tab-timing">
+      <div id="timingBanner"></div>
+      <div class="cards" id="timingCards"></div>
+
+      <div class="panel">
+        <h3>Block-design timeline</h3>
+        <div id="timeline"></div>
+        <div class="legend">
+          <span><i style="background:var(--rest)"></i>Rest / baseline (cond 0)</span>
+          <span><i style="background:var(--active)"></i>Active task (cond 1)</span>
+          <span><i style="background:var(--accent2)"></i>Scanner trigger</span>
+          <span class="mut">grid = TR; ticks = volumes</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Session segments</h3>
+        <div class="scroll">
+          <table id="segTable"><thead><tr>
+            <th>#</th><th>Session item</th><th>Type</th><th class="num">Start</th>
+            <th class="num">Duration</th><th class="num">Vols</th><th>Condition</th><th>Detail</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SIZING -->
+    <section class="tab" id="tab-sizing">
+      <div class="panel">
+        <h3>Display target</h3>
+        <div class="row">
+          <label>Version</label>
+          <select id="selVersion"></select>
+          <label>Screen px</label>
+          <input id="scrW" type="number" min="1" style="width:90px"> ×
+          <input id="scrH" type="number" min="1" style="width:90px">
+          <span class="hint" id="versionHint"></span>
+        </div>
+        <div class="hint">Each picture is centered at its native pixel size (no auto-scale). Pick the screen you'll actually present on; the table flags pictures that overflow (cropped) or are far smaller than the screen.</div>
+      </div>
+
+      <div id="sizingBanner"></div>
+
+      <div class="panel">
+        <h3>Slide rendering — to scale on selected screen</h3>
+        <div class="screenwrap">
+          <div class="screenbox">
+            <label class="mut">Preview a slide:</label>
+            <select id="selSlide" style="margin:6px 0"></select>
+            <canvas id="sizeScreen" class="screen"></canvas>
+            <div class="hint" id="sizeScreenInfo"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Per-slide sizing report</h3>
+        <div class="scroll">
+          <table id="sizeTable"><thead><tr>
+            <th>Slide</th><th>Type</th><th>Content / file</th>
+            <th class="num">Native px</th><th class="num">% width</th><th class="num">% height</th><th>Status</th>
+          </tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Gallery</h3>
+        <div class="galler" id="gallery"></div>
+      </div>
+    </section>
+
+    <!-- PLAYBACK -->
+    <section class="tab" id="tab-play">
+      <div class="panel">
+        <canvas id="player"></canvas>
+        <div class="transport">
+          <button class="primary" id="btnPlay">▶ Play</button>
+          <button id="btnRestart">⏮ Restart</button>
+          <label>Speed</label>
+          <select id="selSpeed">
+            <option value="1">1× (real time)</option>
+            <option value="2">2×</option>
+            <option value="5" selected>5×</option>
+            <option value="10">10×</option>
+            <option value="20">20×</option>
+            <option value="60">60×</option>
+          </select>
+        </div>
+        <div class="transport">
+          <input id="scrub" type="range" min="0" max="1000" value="0" step="1">
+        </div>
+        <div class="nowinfo" id="nowInfo"></div>
+        <div class="hint" style="text-align:center">Plays the real on-screen sequence at the durations encoded in the XML (a real run waits for the scanner trigger at "Start"; here it auto-advances). Use this to eyeball pacing and image size together.</div>
+      </div>
+    </section>
+
+    <!-- RAW -->
+    <section class="tab" id="tab-raw">
+      <div class="panel"><h3>Resolved paradigm</h3><div id="rawInfo"></div></div>
+      <div class="panel"><h3>Loaded files</h3><div class="scroll"><table id="fileTable"><thead><tr><th>Path</th><th class="num">Size</th><th>Role</th></tr></thead><tbody></tbody></table></div></div>
+    </section>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================ utilities ============================ */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const el = (t, a={}, kids=[]) => { const e=document.createElement(t); for(const k in a){ if(k==='class')e.className=a[k]; else if(k==='html')e.innerHTML=a[k]; else if(k==='text')e.textContent=a[k]; else e.setAttribute(k,a[k]); } (Array.isArray(kids)?kids:[kids]).forEach(c=>c&&e.appendChild(typeof c==='string'?document.createTextNode(c):c)); return e; };
+const fmtMs = ms => { if(ms==null||isNaN(ms))return '—'; const s=ms/1000; const m=Math.floor(s/60); const r=s-m*60; return (m?`${m}:${r.toFixed(r%1?1:0).padStart(r<10?(r%1?4:2):0,'0')}`:`${r.toFixed(r%1?1:0)}s`); };
+const mmss = ms => { const s=Math.max(0,Math.round(ms/1000)); const m=Math.floor(s/60); return `${m}:${String(s%60).padStart(2,'0')}`; };
+const colorMap = c => { if(!c)return '#808080'; const k=String(c).trim().toLowerCase(); return ({black:'#000000',white:'#ffffff',grey:'#808080',gray:'#808080',red:'#d63b3b',green:'#36a84a',blue:'#3b6fd4',yellow:'#e8d84a'})[k] || c; };
+
+/* TextDecoder for windows-1252 with utf-8 fallback */
+function decodeBuf(buf){
+  // detect encoding: UTF-8 BOM / declared utf-8 / else windows-1252 (paradigms ship in both)
+  const u=new Uint8Array(buf);
+  const bom=u.length>=3&&u[0]===0xEF&&u[1]===0xBB&&u[2]===0xBF;
+  let head=''; for(let i=(bom?3:0);i<Math.min(u.length,240);i++) head+=String.fromCharCode(u[i]);
+  const dm=head.match(/encoding="([^"]+)"/i);
+  const enc=(bom||(dm&&/utf/i.test(dm[1])))?'utf-8':'windows-1252';
+  return new TextDecoder(enc,{fatal:false}).decode(buf);
+}
+
+/* ============================ file store ============================ */
+// map: normalized lower path -> {file, path, url?}
+let STORE = null;
+function buildStore(files){
+  const byPath = new Map();      // exact relative path (forward slash) -> entry
+  const byLower = new Map();     // lowercase path -> entry
+  const byBase = new Map();      // lowercase basename -> [entries]
+  for(const f of files){
+    const rel = (f.webkitRelativePath || f.name).replace(/\\/g,'/');
+    const entry = { file:f, path:rel, size:f.size };
+    byPath.set(rel, entry);
+    byLower.set(rel.toLowerCase(), entry);
+    const base = rel.split('/').pop().toLowerCase();
+    if(!byBase.has(base)) byBase.set(base,[]);
+    byBase.get(base).push(entry);
+  }
+  return { byPath, byLower, byBase, files:[...byPath.values()] };
+}
+// resolve a relative path (from XML) against a base dir; tolerant of ./ ..\ case & basename
+function resolvePath(baseDir, rel){
+  if(!rel) return null;
+  let p = rel.replace(/\\/g,'/').trim();
+  // build candidate absolute-ish path
+  let stack = baseDir ? baseDir.split('/') : [];
+  for(const part of p.split('/')){
+    if(part==='' || part==='.') continue;
+    if(part==='..') stack.pop();
+    else stack.push(part);
+  }
+  const cand = stack.join('/');
+  if(STORE.byPath.has(cand)) return STORE.byPath.get(cand);
+  if(STORE.byLower.has(cand.toLowerCase())) return STORE.byLower.get(cand.toLowerCase());
+  // fall back to basename match (handles odd relative roots)
+  const base = cand.split('/').pop().toLowerCase();
+  const hits = STORE.byBase.get(base);
+  if(hits && hits.length) return hits[0];
+  return null;
+}
+async function readXmlEntry(entry){
+  const buf = await entry.file.arrayBuffer();
+  const txt = decodeBuf(buf);
+  const doc = new DOMParser().parseFromString(txt, 'application/xml');
+  const perr = doc.querySelector('parsererror');
+  if(perr) throw new Error('XML parse error in '+entry.path+': '+perr.textContent.slice(0,200));
+  return doc;
+}
+
+/* ============================ XML helpers ============================ */
+const childText = (node,tag) => { const c=[...node.children].find(x=>x.tagName===tag); return c? c.textContent : null; };
+const childNodes = (node,tag) => [...node.children].filter(x=>x.tagName===tag);
+
+/* ============================ paradigm model ============================ */
+let PARADIGMS = [];   // list of {entry, baseDir, name, doc}
+let P = null;         // currently resolved paradigm model
+
+// substitute $Vars in a string, return number (ms) or the resolved string
+function subVars(str, vars){
+  if(str==null) return null;
+  let s = String(str).trim();
+  s = s.replace(/\$([A-Za-z_]\w*)/g, (m,name)=> (name in vars)? vars[name] : m);
+  return s;
+}
+function asNum(str, vars){
+  const s = subVars(str, vars);
+  if(s==null||s==='') return null;
+  const n = Number(s);
+  return isNaN(n)? null : n;
+}
+
+async function scanParadigms(){
+  PARADIGMS = [];
+  const xmls = STORE.files.filter(e=>/\.xml$/i.test(e.path));
+  for(const entry of xmls){
+    let doc;
+    try { doc = await readXmlEntry(entry); } catch(e){ continue; }
+    const root = doc.documentElement;
+    if(!root || root.tagName!=='ParameterDescriptionFile') continue;
+    if(!root.querySelector('Session')) continue;            // must be a main paradigm file
+    const nameEl = root.querySelector('Settings>Name');
+    const baseDir = entry.path.includes('/') ? entry.path.slice(0, entry.path.lastIndexOf('/')) : '';
+    PARADIGMS.push({ entry, baseDir, doc, name: (nameEl?nameEl.textContent.trim():entry.path.split('/').pop().replace(/\.xml$/i,'')) });
+  }
+  PARADIGMS.sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+// Build the full resolved model for a chosen paradigm + version + language
+async function resolveParadigm(meta, opts={}){
+  const { doc, baseDir } = meta;
+  const root = doc.documentElement;
+
+  // Variables
+  const vars = {};
+  const vNode = root.querySelector('Variables');
+  if(vNode) for(const c of vNode.children){ const n=Number(c.textContent.trim()); vars[c.tagName] = isNaN(n)? c.textContent.trim() : n; }
+
+  // Settings
+  const S = root.querySelector('Settings');
+  const settings = {
+    name: childText(S,'Name')?.trim() || meta.name,
+    slices: asNum(childText(S,'Slices'),vars),
+    tr: asNum(childText(S,'TimeToRepeat'),vars),
+    ipi: asNum(childText(S,'InterPulseInterval'),vars),
+    avgBlock: asNum(childText(S,'AverageBlockLength'),vars),
+    volumes: asNum(childText(S,'Volumes'),vars),
+  };
+
+  // Defaults
+  const D = root.querySelector('Defaults');
+  const versionsAvail = childNodes(root.querySelector('Versions')||root,'Version').map(v=>v.textContent.trim());
+  const languagesAvail = childNodes(root.querySelector('Languages')||root,'Language').map(v=>v.textContent.trim());
+  const defaults = {
+    bg: (D&&childText(D,'BackGroundColor')?.trim())||'Black',
+    fg: (D&&childText(D,'ForeGroundColor')?.trim())||'Grey',
+    defaultPosition: (D&&childText(D,'DefaultPosition')?.trim())||'MidPos',
+    version: (D&&childText(D,'Version')?.trim()) || versionsAvail[0] || 'LCD-HD',
+    language:(D&&childText(D,'Language')?.trim()) || languagesAvail[0] || 'English',
+  };
+  // resolve to a valid version/language even if the file's declared default is broken (e.g. Auditory Tones default "LCD" not in its list)
+  const version = opts.version || (versionsAvail.includes(defaults.version)?defaults.version:(versionsAvail[0]||defaults.version));
+  const language = opts.language || (languagesAvail.includes(defaults.language)?defaults.language:(languagesAvail[0]||defaults.language));
+
+  // Positions
+  const positions = {};
+  for(const pn of childNodes(root,'Position')){
+    positions[childText(pn,'name')?.trim()] = { h:(childText(pn,'horizontal')||'center').trim(), v:(childText(pn,'vertical')||'center').trim() };
+  }
+
+  // Contrasts
+  const contrasts = [];
+  for(const c of root.querySelectorAll('BOLDSettings>Contrasts>Contrast'))
+    contrasts.push({ name:c.getAttribute('name'), val:Number(c.textContent.trim()) });
+
+  // ---- gather includes (anywhere in main doc), filter by version/language ----
+  const includes = [...root.querySelectorAll('Include')];
+  const filesUsed = []; // for raw tab roles
+  const trials = {};            // name -> trial def
+  const slides = {};            // name -> {text,picture,sound,duration,condition,...}
+  let fontSize = null, defaultPicture = null, description = null;
+
+  function matchInc(inc){
+    const v = inc.getAttribute('Version'); const l = inc.getAttribute('Language');
+    if(v && v!==version) return false;
+    if(l && l!==language) return false;
+    return true;
+  }
+  function mergeSlide(name, fields){
+    if(!slides[name]) slides[name] = { name };
+    Object.assign(slides[name], fields);
+  }
+
+  for(const inc of includes){
+    if(!matchInc(inc)) continue;
+    const relPath = inc.textContent.trim();
+    if(!relPath) continue;
+    const entry = resolvePath(baseDir, relPath);
+    if(!entry){ filesUsed.push({path:relPath, role:'MISSING include', missing:true}); continue; }
+    let idoc; try{ idoc = await readXmlEntry(entry); }catch(e){ filesUsed.push({path:entry.path, role:'parse error'}); continue; }
+    const r = idoc.documentElement;
+    const tag = r.tagName;
+    if(tag==='IncludeTrials'){
+      filesUsed.push({path:entry.path, role:'trials', entry});
+      for(const t of childNodes(r,'Trial')){
+        const name = childText(t,'name')?.trim();
+        const shows = childNodes(t,'show').map(s=>({
+          item: childText(s,'item')?.trim(),
+          duration: asNum(childText(s,'duration'),vars),
+          overlap: /true/i.test(childText(s,'overlap')||'')
+        }));
+        const waits = childNodes(t,'wait').map(w=>asNum(w.textContent,vars)||0);
+        const reg = childNodes(t,'register').map(rg=>childText(rg,'key')?.trim());
+        const cond = childText(t,'condition');
+        trials[name] = {
+          name, shows, waits,
+          clear: !!childNodes(t,'clear').length,
+          register: reg.length? reg : null,
+          condition: cond!=null? Number(cond.trim()) : null
+        };
+      }
+    } else if(tag==='IncludeSlides'){
+      filesUsed.push({path:entry.path, role: inc.getAttribute('Version')? ('slides/'+inc.getAttribute('Version')) : (inc.getAttribute('Language')? 'slides/'+inc.getAttribute('Language') : 'slides'), entry});
+      for(const s of childNodes(r,'Slide')){
+        const name = childText(s,'name')?.trim();
+        const fields = {};
+        const tx = childNodes(s,'text'); if(tx.length) fields.text = tx[0].textContent;
+        const pics = childNodes(s,'Picture').map(p=>p.textContent.trim()); if(pics.length){ fields.pictures = pics; fields.picture = pics[0]; }
+        const snd = childText(s,'Sound'); if(snd!=null) fields.sound = snd.trim();
+        const vid = childText(s,'Video'); if(vid!=null) fields.video = vid.trim();
+        if(childNodes(s,'expectedResponse').length) fields.expectedResponse = true;
+        const dur = childText(s,'duration'); if(dur!=null) fields.duration = asNum(dur,vars);
+        const cnd = childText(s,'condition'); if(cnd!=null) fields.condition = Number(cnd.trim());
+        const pos = childText(s,'position'); if(pos!=null) fields.position = pos.trim();
+        mergeSlide(name, fields);
+      }
+    } else if(tag==='IncludeDefaults'){
+      filesUsed.push({path:entry.path, role:'defaults', entry});
+      const fs = childText(r,'FontSize'); if(fs!=null) fontSize = asNum(fs,vars);
+      const dp = childText(r,'DefaultPicture'); if(dp!=null) defaultPicture = dp.trim();
+    } else if(tag==='Include'){ // description wrapper
+      const desc = r.querySelector('Description');
+      if(desc){ filesUsed.push({path:entry.path, role:'description', entry}); description = desc.textContent; }
+      else filesUsed.push({path:entry.path, role:'include'});
+    }
+  }
+
+  // ---- blocks ----
+  const blocks = {};
+  for(const b of childNodes(root,'Block')){
+    blocks[childText(b,'name')?.trim()] = {
+      name: childText(b,'name')?.trim(),
+      trials: childNodes(b,'trials').map(t=>t.textContent.trim()),
+      condition: (childText(b,'condition')!=null)? Number(childText(b,'condition').trim()) : null,
+      repetitions: asNum(childText(b,'repetitions'),vars) ?? 1,
+      order: (childText(b,'order')!=null)? Number(childText(b,'order').trim()) : 0
+    };
+  }
+
+  // ---- session ----
+  const sessionNode = root.querySelector('Session');
+  const sessionName = childText(sessionNode,'name')?.trim();
+  const session = [];
+  for(const c of sessionNode.children){
+    if(c.tagName==='runtrial') session.push({type:'trial', name:c.textContent.trim()});
+    else if(c.tagName==='runblock') session.push({type:'block', name:c.textContent.trim()});
+  }
+
+  // ---- compute trial duration ----
+  function trialDuration(tname){
+    const t = trials[tname];
+    if(!t) return {ms:0, indefinite:false, missing:true};
+    let ms = 0, indefinite=false;
+    for(const sh of t.shows){
+      let d = sh.duration;
+      if(d==null){ const sl=slides[sh.item]; d = sl&&sl.duration!=null? sl.duration : null; }
+      if(d==null){ indefinite = true; }   // shown until trigger/next (e.g. Start, Instructions)
+      else ms += d;
+    }
+    for(const w of t.waits) ms += w;
+    return {ms, indefinite, missing:false};
+  }
+  function trialCondition(tname, inherited){
+    const t = trials[tname];
+    if(t && t.condition!=null) return t.condition;
+    return inherited!=null? inherited : 0;
+  }
+  function blockDuration(bname){
+    const b = blocks[bname];
+    if(!b) return {ms:0, missing:true};
+    let one = 0;
+    for(const tn of b.trials) one += trialDuration(tn).ms;
+    return {ms: one * (b.repetitions||1), one, reps:b.repetitions||1, missing:false};
+  }
+
+  return {
+    meta, baseDir, vars, settings, defaults, versionsAvail, languagesAvail, version, language,
+    positions, contrasts, trials, slides, blocks, session, sessionName,
+    fontSize, defaultPicture, description, filesUsed,
+    trialDuration, trialCondition, blockDuration
+  };
+}
+
+/* ============================ timeline build ============================ */
+// top-level segments for chart + table; and flat slide-level segments for playback
+function buildTimeline(P){
+  const segs = [];     // {label,type,startMs,durMs,cond,indefinite,detail}
+  const flat = [];     // {slide, startMs, durMs, cond, label}
+  let t = 0;
+  for(const item of P.session){
+    if(item.type==='trial'){
+      const tr = P.trials[item.name];
+      const dur = P.trialDuration(item.name);
+      const cond = P.trialCondition(item.name, null);
+      const isTrigger = tr && tr.register;
+      const detail = !tr ? 'missing trial' :
+        (tr.register? `wait for key “${tr.register.join(',')}”` :
+         tr.waits.length? `wait ${tr.waits.join('+')} ms` :
+         tr.shows.map(s=>s.item).join(', '));
+      segs.push({ label:item.name, type: isTrigger?'trigger':'trial', startMs:t, durMs:dur.indefinite?0:dur.ms, cond, indefinite:dur.indefinite, detail, isTrigger });
+      // flat slide-level
+      if(tr){
+        if(isTrigger){
+          flat.push({ slide: tr.shows[0]?P.slides[tr.shows[0].item]:null, startMs:t, durMs:600, cond, label:item.name+' (trigger)', trigger:true });
+        } else if(tr.shows.length){
+          for(const sh of tr.shows){
+            let d = sh.duration; if(d==null){ const sl=P.slides[sh.item]; d = sl&&sl.duration!=null? sl.duration : 0; }
+            flat.push({ slide:P.slides[sh.item]||{name:sh.item}, startMs:t, durMs:d, cond, label:item.name });
+            t_add(d);
+          }
+        } else if(tr.waits.length){
+          for(const w of tr.waits){ flat.push({ slide:null, startMs:t, durMs:w, cond, label:item.name+' (rest)' }); t_add(w); }
+        }
+      }
+      if(!(tr&&(tr.shows.length||tr.waits.length))) { /* trigger or empty: advance by seg dur */ if(!isTrigger) t += dur.ms; }
+      else if(isTrigger){ /* flat already accounted minimal; advance 0 scan time */ }
+    } else {
+      const b = P.blocks[item.name];
+      const bd = P.blockDuration(item.name);
+      const cond = (b&&b.condition!=null)? b.condition : 1;
+      segs.push({ label:item.name, type:'block', startMs:t, durMs:bd.ms, cond, indefinite:false,
+                  detail:`${b?b.trials.length:0} trials${bd.reps>1?` ×${bd.reps} reps`:''}`, block:b, one:bd.one, reps:bd.reps });
+      // flat: expand trials × reps
+      if(b){
+        for(let r=0;r<(b.repetitions||1);r++){
+          for(const tn of b.trials){
+            const tr=P.trials[tn]; if(!tr) continue;
+            const tcond = P.trialCondition(tn, b.condition);
+            for(const sh of tr.shows){
+              let d=sh.duration; if(d==null){const sl=P.slides[sh.item]; d=sl&&sl.duration!=null?sl.duration:0;}
+              flat.push({ slide:P.slides[sh.item]||{name:sh.item}, startMs:t, durMs:d, cond:tcond, label:`${item.name}:${tn}` }); t_add(d);
+            }
+            for(const w of tr.waits){ flat.push({ slide:null, startMs:t, durMs:w, cond:tcond, label:`${item.name}:${tn}` }); t_add(w); }
+          }
+        }
+      }
+    }
+    function t_add(d){ t += d; }
+  }
+  const totalMs = t;
+  return { segs, flat, totalMs };
+}
+
+/* ============================ image loading ============================ */
+const IMG_CACHE = new Map();  // resolved path -> {img, w, h, url, missing}
+async function loadSlideImages(P){
+  const jobs = [];
+  for(const name in P.slides){
+    const sl = P.slides[name];
+    const refs = sl.pictures && sl.pictures.length ? sl.pictures : (sl.picture ? [sl.picture] : []);
+    if(!refs.length) continue;
+    sl._imgs = new Array(refs.length);
+    refs.forEach((ref, idx)=>{
+      const entry = resolvePath(P.baseDir, ref);
+      if(!entry){ sl._imgs[idx] = {missing:true, ref}; return; }
+      if(IMG_CACHE.has(entry.path)){ sl._imgs[idx] = IMG_CACHE.get(entry.path); return; }
+      jobs.push(new Promise(res=>{
+        const url = URL.createObjectURL(entry.file);
+        const img = new Image();
+        img.onload = ()=>{ const o={img,w:img.naturalWidth,h:img.naturalHeight,url,path:entry.path}; IMG_CACHE.set(entry.path,o); sl._imgs[idx]=o; res(); };
+        img.onerror= ()=>{ const o={missing:true,url,path:entry.path,ref}; IMG_CACHE.set(entry.path,o); sl._imgs[idx]=o; res(); };
+        img.src = url;
+      }));
+    });
+  }
+  await Promise.all(jobs);
+  // first layer kept as sl._img for the sizing table / gallery
+  for(const name in P.slides){ const sl=P.slides[name]; if(sl._imgs) sl._img = sl._imgs[0]; }
+}
+
+/* ============================ rendering: slide to canvas ============================ */
+function drawSlide(ctx, cw, ch, screenW, screenH, slide, P){
+  ctx.save();
+  ctx.fillStyle = colorMap(P.defaults.bg);
+  ctx.fillRect(0,0,cw,ch);
+  if(!slide){ ctx.restore(); return; }
+  const scale = cw/screenW;                 // canvas is screen-aspect
+  ctx.beginPath(); ctx.rect(0,0,cw,ch); ctx.clip();   // simulate screen crop
+  // pictures (layered, in document order)
+  const imgs = slide._imgs || (slide._img? [slide._img] : []);
+  let anyMissing = false;
+  for(const im of imgs){
+    if(im && !im.missing){ const w=im.w*scale, h=im.h*scale; ctx.drawImage(im.img,(cw-w)/2,(ch-h)/2,w,h); }
+    else if(im) anyMissing = true;
+  }
+  if(!imgs.length && slide.video){
+    ctx.fillStyle='#1c2230'; ctx.fillRect(cw*0.18,ch*0.32,cw*0.64,ch*0.36);
+    ctx.fillStyle='#9cc4ff'; ctx.font='15px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🎞 '+slide.video.split(/[\\/]/).pop(), cw/2, ch/2);
+  } else if(anyMissing && !imgs.some(im=>im&&!im.missing)){
+    ctx.fillStyle = '#3a1616'; ctx.fillRect(cw*0.2,ch*0.35,cw*0.6,ch*0.3);
+    ctx.fillStyle = '#f6a8a3'; ctx.font = `${14}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('missing: '+(slide.picture||'').split(/[\\/]/).pop(), cw/2, ch/2);
+  }
+  // text
+  if(slide.text!=null && slide.text.trim()!==''){
+    const fs = (P.fontSize||48)*scale;
+    ctx.fillStyle = colorMap(P.defaults.fg);
+    ctx.font = `${fs}px sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const lines = slide.text.replace(/\r/g,'').split('\n');
+    const lh = fs*1.2;
+    const y0 = ch/2 - lh*(lines.length-1)/2;
+    lines.forEach((ln,i)=> ctx.fillText(ln, cw/2, y0+i*lh));
+  }
+  // badges: audio / video / response / layer count
+  const tags=[];
+  if((slide._imgs||[]).filter(im=>im&&!im.missing).length>1) tags.push(slide._imgs.length+' layers');
+  if(slide.sound) tags.push('🔊 audio');
+  if(slide.video) tags.push('🎞 video');
+  if(slide.expectedResponse) tags.push('⌨ response');
+  if(tags.length){ ctx.font=`${Math.max(11,cw*0.018)}px sans-serif`; ctx.textAlign='left'; ctx.textBaseline='top'; const t=tags.join('   '); const tw=ctx.measureText(t).width+14; ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(cw*0.012,cw*0.012,tw,Math.max(18,cw*0.03)); ctx.fillStyle='#9cc4ff'; ctx.fillText(t, cw*0.012+7, cw*0.012+3); }
+  ctx.restore();
+}
+
+/* ============================ TIMING tab render ============================ */
+let TL = null;
+function renderTiming(){
+  TL = buildTimeline(P);
+  const tr = P.settings.tr;
+  const computedVols = tr? TL.totalMs/tr : null;
+  const declared = P.settings.volumes;
+  // active/rest accounting
+  let activeMs=0, restMs=0;
+  for(const s of TL.segs){ if(s.indefinite) continue; if(s.cond>0) activeMs+=s.durMs; else restMs+=s.durMs; }
+
+  // banner
+  const bb = $('#timingBanner'); bb.innerHTML='';
+  if(declared!=null && tr){
+    const cv = computedVols, diff = cv-declared;
+    const near = Math.abs(diff) < 0.5;
+    const cls = near?'ok':(Math.abs(diff)<=2?'warn':'bad');
+    const ic = near?'✅':(cls==='warn'?'⚠️':'⛔');
+    bb.appendChild(el('div',{class:'banner '+cls},[
+      el('span',{class:'ic',text:ic}),
+      el('div',{html:
+        near
+        ? `<b>Timing matches.</b> Session runs <b>${mmss(TL.totalMs)}</b> = <b>${cv.toFixed(2)} volumes</b> at TR ${tr} ms, equal to the declared <b>Volumes=${declared}</b>.`
+        : `<b>Timing mismatch.</b> Session runs <b>${mmss(TL.totalMs)}</b> = <b>${cv.toFixed(2)} volumes</b> at TR ${tr} ms, but the file declares <b>Volumes=${declared}</b>. Difference <b>${diff>0?'+':''}${diff.toFixed(2)} vol</b> (${diff>0?'+':''}${(diff*tr/1000).toFixed(1)} s). Set Volumes to <b>${Math.round(cv)}</b> (or adjust block design) so the scan length matches.`
+      })
+    ]));
+  }
+
+  // cards
+  const cards = $('#timingCards'); cards.innerHTML='';
+  const card=(k,v,sub)=>cards.appendChild(el('div',{class:'card'},[el('div',{class:'k',text:k}),el('div',{class:'v',html:v+(sub?` <small>${sub}</small>`:'')})]));
+  card('Scan duration', mmss(TL.totalMs), `${(TL.totalMs/1000).toFixed(1)} s`);
+  card('Computed volumes', computedVols!=null?computedVols.toFixed(1):'—', `TR ${tr??'?'} ms`);
+  card('Declared volumes', declared??'—');
+  card('Active', mmss(activeMs), tr?`${(activeMs/tr).toFixed(0)} vol`:'');
+  card('Rest', mmss(restMs), tr?`${(restMs/tr).toFixed(0)} vol`:'');
+  card('Blocks', String(TL.segs.filter(s=>s.type==='block').length));
+  card('Slices', P.settings.slices??'—');
+  card('Duty cycle', activeMs+restMs? `${(100*activeMs/(activeMs+restMs)).toFixed(0)}%`:'—','active');
+
+  drawTimelineSVG(TL, tr);
+
+  // segment table
+  const tb = $('#segTable tbody'); tb.innerHTML='';
+  TL.segs.forEach((s,i)=>{
+    const condPill = s.isTrigger? '<span class="pill" style="background:#10322c;color:#7ee0c0">trigger</span>'
+      : (s.indefinite? '<span class="pill rest">—</span>'
+      : (s.cond>0? '<span class="pill active">active</span>':'<span class="pill rest">rest</span>'));
+    tb.appendChild(el('tr',{},[
+      el('td',{class:'num',text:i+1}),
+      el('td',{html:`<b>${s.label}</b>`}),
+      el('td',{text:s.type}),
+      el('td',{class:'num',text:mmss(s.startMs)}),
+      el('td',{class:'num',text:s.indefinite?'until key':fmtMs(s.durMs)}),
+      el('td',{class:'num',text:(s.indefinite||!tr)?'—':(s.durMs/tr).toFixed(s.durMs%tr?1:0)}),
+      el('td',{html:condPill}),
+      el('td',{class:'mut',text:s.detail||''}),
+    ]));
+  });
+}
+
+function drawTimelineSVG(TL, tr){
+  const host = $('#timeline'); host.innerHTML='';
+  const W = host.clientWidth||1100, rowH=54, padL=8, padR=8, top=10, axisH=22;
+  const H = top+rowH+axisH+6;
+  const total = TL.totalMs||1;
+  const x = ms => padL + (W-padL-padR)*ms/total;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.setAttribute('class','tl'); svg.style.height=H+'px';
+  const NS='http://www.w3.org/2000/svg';
+  const mk=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+
+  // TR grid
+  if(tr){ const n=Math.ceil(total/tr); for(let i=0;i<=n;i++){ const xx=x(i*tr); svg.appendChild(mk('line',{x1:xx,y1:top,x2:xx,y2:top+rowH,stroke:'#1d2430','stroke-width':i%5?0.5:1})); } }
+
+  // blocks
+  for(const s of TL.segs){
+    if(s.isTrigger){ const xx=x(s.startMs); svg.appendChild(mk('line',{x1:xx,y1:top-2,x2:xx,y2:top+rowH+2,stroke:'var(--accent2)','stroke-width':2}));
+      const tlbl=mk('text',{x:xx+3,y:top+10,fill:'#7ee0c0','font-size':10}); tlbl.textContent='▸trigger'; svg.appendChild(tlbl); continue; }
+    if(s.indefinite||s.durMs<=0) continue;
+    const xa=x(s.startMs), w=Math.max(1,x(s.startMs+s.durMs)-xa);
+    const fill = s.cond>0? 'var(--active)':'var(--rest)';
+    const r=mk('rect',{x:xa,y:top,width:w,height:rowH,fill,rx:3,stroke:'#0c0f14','stroke-width':1});
+    const ti=mk('title'); ti.textContent=`${s.label} — ${mmss(s.startMs)}–${mmss(s.startMs+s.durMs)} (${fmtMs(s.durMs)}${tr?`, ${(s.durMs/tr).toFixed(0)} vol`:''})`;
+    r.appendChild(ti); svg.appendChild(r);
+    if(w>34){ const t=mk('text',{x:xa+w/2,y:top+rowH/2+4,fill:s.cond>0?'#cfe0ff':'#aeb7c6','font-size':10,'text-anchor':'middle'}); t.textContent=s.label.length*6<w?s.label:''; svg.appendChild(t); }
+  }
+  // axis ticks every 30s or 60s
+  const stepS = total>600000?120: total>240000?60:30;
+  for(let sMs=0; sMs<=total; sMs+=stepS*1000){
+    const xx=x(sMs); svg.appendChild(mk('line',{x1:xx,y1:top+rowH,x2:xx,y2:top+rowH+4,stroke:'#3a4658'}));
+    const t=mk('text',{x:xx,y:top+rowH+16,fill:'#8b97a8','font-size':10,'text-anchor':'middle'}); t.textContent=mmss(sMs); svg.appendChild(t);
+  }
+  host.appendChild(svg);
+}
+
+/* ============================ SIZING tab render ============================ */
+const SCREEN_PRESETS = { 'LCD-HD':[1920,1080], 'LCD-4K':[3840,2160], 'VisualSystem':[1920,1200] };
+let curScreen = [1920,1080];
+
+function fillSlidePicker(){
+  const sel = $('#selSlide'); sel.innerHTML='';
+  // unique slides actually used in flat sequence, but list all slides
+  const names = Object.keys(P.slides);
+  // prefer interesting first: pictures, then text
+  names.sort();
+  for(const n of names){ const sl=P.slides[n]; const kind=sl.video?'🎞':(sl.picture?'🖼':(sl.sound&&sl.text==null?'🔊':'🅣')); sel.appendChild(el('option',{value:n},`${kind}  ${n}`)); }
+}
+function renderSizing(){
+  // version select
+  const sv=$('#selVersion'); sv.innerHTML='';
+  (P.versionsAvail.length?P.versionsAvail:[P.version]).forEach(v=>sv.appendChild(el('option',{value:v},v)));
+  sv.value = P.version;
+  applyScreenFromVersion(P.version);
+  fillSlidePicker();
+  drawSizePreview();
+  renderSizeTable();
+  renderGallery();
+}
+function applyScreenFromVersion(v){
+  const p = SCREEN_PRESETS[v] || SCREEN_PRESETS['LCD-HD'];
+  curScreen = [p[0],p[1]];
+  $('#scrW').value=p[0]; $('#scrH').value=p[1];
+  $('#versionHint').textContent = `${v}: presenting at ${p[0]}×${p[1]} px · FontSize ${P.fontSize??'?'} px · bg ${P.defaults.bg} / fg ${P.defaults.fg}`;
+}
+function drawSizePreview(){
+  const name=$('#selSlide').value; const sl=P.slides[name]; if(!sl)return;
+  const cvs=$('#sizeScreen'); const cw=Math.min(900, cvs.parentElement.clientWidth||760);
+  const [sw,sh]=curScreen; cvs.width=cw; cvs.height=Math.round(cw*sh/sw);
+  drawSlide(cvs.getContext('2d'), cvs.width, cvs.height, sw, sh, sl, P);
+  let info=`Screen ${sw}×${sh}.`;
+  if(sl._img&&!sl._img.missing){ const fw=100*sl._img.w/sw, fh=100*sl._img.h/sh; info+=` Picture ${sl._img.w}×${sl._img.h} px → fills ${fw.toFixed(0)}% W × ${fh.toFixed(0)}% H.`; if(sl._img.w>sw||sl._img.h>sh) info+=' ⚠️ larger than screen → cropped.'; else if(fw<25&&fh<25) info+=' ⚠️ very small on this screen.'; }
+  else if(sl.picture){ info+=` ⛔ picture file not found: ${sl.picture}`; }
+  else if(sl.text!=null){ info+=` Text “${sl.text.replace(/\n/g,' ⏎ ').trim()||'(blank)'}” at FontSize ${P.fontSize??'?'} px (${P.fontSize?(100*P.fontSize/sh).toFixed(0):'?'}% of screen height).`; }
+  $('#sizeScreenInfo').textContent=info;
+}
+function sizeStatus(sl){
+  const [sw,sh]=curScreen;
+  if(sl.picture){
+    if(!sl._img||sl._img.missing) return {pill:'bad',txt:'file missing'};
+    if(sl._img.w>sw||sl._img.h>sh) return {pill:'warn',txt:'oversized → cropped'};
+    const fw=sl._img.w/sw, fh=sl._img.h/sh;
+    if(fw<0.25&&fh<0.25) return {pill:'warn',txt:'small on screen'};
+    return {pill:'ok',txt:'ok'};
+  }
+  if(sl.text!=null){
+    if(!sl.text.trim()) return {pill:'ok',txt:'blank'};
+    const approxW = (P.fontSize||48)*0.6*sl.text.split('\n').reduce((m,l)=>Math.max(m,l.length),0);
+    if(approxW>sw) return {pill:'warn',txt:'text may overflow width'};
+    return {pill:'ok',txt:'ok'};
+  }
+  return {pill:'rest',txt:'empty'};
+}
+function renderSizeTable(){
+  const [sw,sh]=curScreen;
+  const tb=$('#sizeTable tbody'); tb.innerHTML='';
+  let warn=0,bad=0;
+  Object.keys(P.slides).sort().forEach(n=>{
+    const sl=P.slides[n]; const st=sizeStatus(sl);
+    if(st.pill==='warn')warn++; if(st.pill==='bad')bad++;
+    const isPic=!!sl.picture;
+    const native = isPic? (sl._img&&!sl._img.missing? `${sl._img.w}×${sl._img.h}`:'—') : '—';
+    const pw = isPic&&sl._img&&!sl._img.missing? (100*sl._img.w/sw).toFixed(0)+'%':'—';
+    const ph = isPic&&sl._img&&!sl._img.missing? (100*sl._img.h/sh).toFixed(0)+'%':'—';
+    const content = isPic? sl.picture.split(/[\\/]/).pop() : `“${(sl.text||'').replace(/\n/g,' ⏎ ').trim()||'(blank)'}”`;
+    tb.appendChild(el('tr',{},[
+      el('td',{html:`<b>${n}</b>`}),
+      el('td',{text:isPic?'picture':'text'}),
+      el('td',{class:'mut mono',text:content}),
+      el('td',{class:'num',text:native}),
+      el('td',{class:'num',text:pw}),
+      el('td',{class:'num',text:ph}),
+      el('td',{html:`<span class="pill ${st.pill}">${st.txt}</span>`}),
+    ]));
+  });
+  // sizing banner
+  const sb=$('#sizingBanner'); sb.innerHTML='';
+  const cls= bad?'bad':(warn?'warn':'ok'); const ic= bad?'⛔':(warn?'⚠️':'✅');
+  sb.appendChild(el('div',{class:'banner '+cls},[el('span',{class:'ic',text:ic}),el('div',{html:
+    bad? `<b>${bad} slide(s) reference a missing picture file</b>${warn?` and ${warn} have sizing warnings`:''} for ${P.version} (${sw}×${sh}).`
+    : warn? `<b>${warn} slide(s) have sizing warnings</b> for ${P.version} (${sw}×${sh}) — see table (oversized→cropped, or very small).`
+    : `<b>All slides size cleanly</b> for ${P.version} (${sw}×${sh}).`})]));
+}
+function renderGallery(){
+  const g=$('#gallery'); g.innerHTML='';
+  const [sw,sh]=curScreen;
+  // show the distinct slides used in the session sequence (dedup by name), capped
+  const order=[]; const seen=new Set();
+  for(const f of TL.flat){ const nm=f.slide?f.slide.name:null; if(nm&&!seen.has(nm)){seen.add(nm);order.push(f.slide);} }
+  const list = order.length?order:Object.values(P.slides);
+  list.slice(0,120).forEach(sl=>{
+    const box=el('div',{class:'thumb'});
+    const cvs=el('canvas'); const cw=220; cvs.width=cw; cvs.height=Math.round(cw*sh/sw);
+    drawSlide(cvs.getContext('2d'),cvs.width,cvs.height,sw,sh,sl,P);
+    const st=sizeStatus(sl);
+    box.appendChild(cvs);
+    box.appendChild(el('div',{class:'cap'},[el('span',{text:sl.name}),el('span',{html:`<span class="pill ${st.pill}">${st.txt}</span>`})]));
+    g.appendChild(box);
+  });
+}
+
+/* ============================ PLAYBACK ============================ */
+let PB = { playing:false, t0:0, elapsed:0, raf:null, speed:5, lastSegStart:null, audio:null };
+const AUDIO_CACHE = new Map();
+function stopAudio(){ if(PB.audio){ try{PB.audio.pause();}catch(e){} PB.audio=null; } PB.lastSegStart=null; }
+function playSlideAudio(slide){
+  if(!slide || !slide.sound) return;
+  const entry = resolvePath(P.baseDir, slide.sound); if(!entry) return;
+  let url = AUDIO_CACHE.get(entry.path); if(!url){ url = URL.createObjectURL(entry.file); AUDIO_CACHE.set(entry.path, url); }
+  try{ if(PB.audio){ PB.audio.pause(); } const a=new Audio(url); a.playbackRate=Math.min(Math.max(PB.speed,1),4); PB.audio=a; a.play().catch(()=>{}); }catch(e){}
+}
+function setupPlayback(){
+  const cvs=$('#player'); const [sw,sh]=curScreen; const cw=Math.min(760, $('#tab-play').clientWidth-40);
+  cvs.width=cw; cvs.height=Math.round(cw*sh/sw);
+  PB.elapsed=0; PB.playing=false; $('#btnPlay').textContent='▶ Play';
+  $('#scrub').max = Math.max(1,Math.round(TL.totalMs));
+  drawPlaybackAt(0);
+}
+function curSegAt(ms){
+  // find flat segment covering ms
+  let acc=0;
+  for(const f of TL.flat){ if(ms>=f.startMs && ms < f.startMs+f.durMs) return f; }
+  return TL.flat[TL.flat.length-1]||null;
+}
+function drawPlaybackAt(ms){
+  const cvs=$('#player'); const [sw,sh]=curScreen;
+  const seg = curSegAt(ms);
+  drawSlide(cvs.getContext('2d'), cvs.width, cvs.height, sw, sh, seg?seg.slide:null, P);
+  // overlay HUD-free; info below
+  const tr=P.settings.tr;
+  $('#scrub').value=Math.min(ms,TL.totalMs);
+  $('#nowInfo').innerHTML =
+    `<span>⏱ <b>${mmss(ms)}</b> / ${mmss(TL.totalMs)}</span>`+
+    `<span>vol <b>${tr?Math.floor(ms/tr)+1:'—'}</b>${P.settings.volumes?` / ${P.settings.volumes}`:''}</span>`+
+    `<span>${seg? (seg.cond>0?'<b style="color:#9cc4ff">ACTIVE</b>':'<b style="color:#aeb7c6">rest</b>'):''} ${seg?('· '+seg.label):''}</span>`+
+    `<span>${seg&&seg.slide?('slide: <b>'+(seg.slide.name||'?')+'</b>'):''}</span>`;
+}
+function tick(ts){
+  if(!PB.playing) return;
+  if(!PB.lastTs){ PB.lastTs=ts; PB.raf=requestAnimationFrame(tick); return; }  // seed first frame, dt=0
+  const dt = ts - PB.lastTs; PB.lastTs = ts;
+  PB.elapsed += dt*PB.speed;
+  if(PB.elapsed>=TL.totalMs){ PB.elapsed=TL.totalMs; PB.playing=false; $('#btnPlay').textContent='▶ Play'; stopAudio(); drawPlaybackAt(PB.elapsed); return; }
+  drawPlaybackAt(PB.elapsed);
+  // play a slide's sound when its segment first becomes current
+  const seg = curSegAt(PB.elapsed);
+  if(seg && seg.startMs !== PB.lastSegStart){ PB.lastSegStart = seg.startMs; if(seg.slide && seg.slide.sound) playSlideAudio(seg.slide); else if(PB.audio){ PB.audio.pause(); PB.audio=null; } }
+  PB.raf=requestAnimationFrame(tick);
+}
+function playPause(){
+  PB.playing=!PB.playing;
+  $('#btnPlay').textContent = PB.playing?'⏸ Pause':'▶ Play';
+  if(PB.playing){ if(PB.elapsed>=TL.totalMs)PB.elapsed=0; PB.t0=0; PB.lastTs=0; PB.lastSegStart=null; PB.raf=requestAnimationFrame(tick); }
+  else { cancelAnimationFrame(PB.raf); stopAudio(); }
+}
+
+/* ============================ RAW tab ============================ */
+function renderRaw(){
+  const r=$('#rawInfo');
+  const c=P.contrasts.map(c=>`${c.name} = ${c.val}`).join(' · ')||'—';
+  r.innerHTML = `
+    <div class="row" style="gap:26px">
+      <div><div class="k mut">Name</div><b>${P.settings.name}</b></div>
+      <div><div class="k mut">Session</div>${P.sessionName||'—'}</div>
+      <div><div class="k mut">Version / Language</div>${P.version} / ${P.language}</div>
+      <div><div class="k mut">TR · IPI · Slices</div>${P.settings.tr} · ${P.settings.ipi} · ${P.settings.slices}</div>
+      <div><div class="k mut">FontSize</div>${P.fontSize??'—'}</div>
+    </div>
+    <p class="mut" style="margin-top:10px">Contrasts: ${c}</p>
+    ${P.description? `<details style="margin-top:8px"><summary>Description / patient instructions</summary><pre style="white-space:pre-wrap;color:#cdd6e0">${P.description.replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]))}</pre></details>`:''}
+  `;
+  const tb=$('#fileTable tbody'); tb.innerHTML='';
+  tb.appendChild(el('tr',{},[el('td',{class:'mono',html:`<b>${P.meta.entry.path}</b>`}),el('td',{class:'num',text:(P.meta.entry.size/1024).toFixed(1)+' KB'}),el('td',{text:'main paradigm'})]));
+  for(const f of P.filesUsed){
+    tb.appendChild(el('tr',{},[el('td',{class:'mono',text:f.path}),el('td',{class:'num',text:f.entry?(f.entry.size/1024).toFixed(1)+' KB':'—'}),el('td',{class:f.missing?'':'mut',html:f.missing?'<span class="pill bad">missing</span>':f.role})]));
+  }
+}
+
+/* ============================ orchestration ============================ */
+async function loadParadigm(idx, opts={}){
+  const meta = PARADIGMS[idx];
+  try {
+    P = await resolveParadigm(meta, opts);
+    await loadSlideImages(P);
+    renderTiming();
+    renderSizing();
+    setupPlayback();
+    renderRaw();
+  } catch(e){
+    $('#loadErr').textContent = 'Error: '+e.message;
+    console.error(e);
+  }
+}
+
+async function onFiles(files){
+  $('#loadErr').textContent='';
+  if(!files.length){ $('#loadErr').textContent='No files found in that folder.'; return; }
+  STORE = buildStore(files);
+  await scanParadigms();
+  if(!PARADIGMS.length){
+    $('#loadErr').textContent='No paradigm found. Expected a folder with a main .xml containing <Session> (plus _trials.xml / _slides_*.xml). Try selecting the paradigm folder itself or its parent.';
+    return;
+  }
+  // populate picker
+  const sel=$('#selParadigm'); sel.innerHTML='';
+  PARADIGMS.forEach((p,i)=> sel.appendChild(el('option',{value:i},`${p.name}  ·  ${p.baseDir||'.'}`)));
+  $('#paradigmPicker').style.display='flex';
+  $('#loader').style.display='none';
+  $('#app').style.display='block';
+  await loadParadigm(0);
+}
+
+/* ---- wire up UI ---- */
+$('#btnPick').onclick = ()=> $('#fileInput').click();
+$('#btnReload').onclick = ()=> { $('#fileInput').value=''; $('#fileInput').click(); };
+$('#fileInput').onchange = e => onFiles([...e.target.files]);
+
+$('#selParadigm').onchange = e => loadParadigm(Number(e.target.value));
+
+const drop=$('#drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop', async e=>{
+  const items=[...e.dataTransfer.items].map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);
+  if(items.length){ const files=[]; for(const it of items) await walkEntry(it,files); onFiles(files); }
+  else onFiles([...e.dataTransfer.files]);
+});
+function walkEntry(entry, out, path=''){
+  return new Promise(res=>{
+    if(entry.isFile){ entry.file(f=>{ try{Object.defineProperty(f,'webkitRelativePath',{value:(path+entry.name)});}catch(_){} out.push(f); res(); }); }
+    else if(entry.isDirectory){ const rd=entry.createReader(); const all=[];
+      const read=()=>rd.readEntries(async ents=>{ if(!ents.length){ for(const c of all) await walkEntry(c,out,path+entry.name+'/'); res(); } else { all.push(...ents); read(); } }); read();
+    } else res();
+  });
+}
+
+// tabs
+$$('.tabs button').forEach(b=>b.onclick=()=>{
+  $$('.tabs button').forEach(x=>x.classList.remove('on'));
+  $$('.tab').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); $('#tab-'+b.dataset.tab).classList.add('on');
+  if(b.dataset.tab==='timing' && TL) drawTimelineSVG(TL,P.settings.tr);
+  if(b.dataset.tab==='play') setupPlayback();
+});
+
+// sizing controls
+$('#selVersion').onchange = async e=>{ await loadParadigm(Number($('#selParadigm').value),{version:e.target.value, language:P.language}); $$('.tabs button').forEach(x=>x.classList.remove('on')); $$('.tab').forEach(x=>x.classList.remove('on')); document.querySelector('.tabs button[data-tab=sizing]').classList.add('on'); $('#tab-sizing').classList.add('on'); };
+$('#scrW').onchange=$('#scrH').onchange=()=>{ curScreen=[Number($('#scrW').value)||1,Number($('#scrH').value)||1]; drawSizePreview(); renderSizeTable(); renderGallery(); };
+$('#selSlide').onchange=drawSizePreview;
+
+// playback controls
+$('#btnPlay').onclick=playPause;
+$('#btnRestart').onclick=()=>{ PB.elapsed=0; PB.playing=false; $('#btnPlay').textContent='▶ Play'; cancelAnimationFrame(PB.raf); stopAudio(); drawPlaybackAt(0); };
+$('#selSpeed').onchange=e=>PB.speed=Number(e.target.value);
+$('#scrub').oninput=e=>{ PB.elapsed=Number(e.target.value); drawPlaybackAt(PB.elapsed); };
+
+window.addEventListener('resize', ()=>{ if(P&&TL){ drawTimelineSVG(TL,P.settings.tr); } });
+</script>
+</body>
+</html>
