@@ -1,0 +1,190 @@
+<body>
+<header>
+  <h1>fMRI Paradigm Studio <span class="sub">view, edit and convert block-design paradigms</span></h1>
+  <div class="grow"></div>
+  <div class="row" id="topctl" hidden>
+    <label for="selParadigm">Paradigm</label>
+    <select id="selParadigm" style="max-width:230px"></select>
+    <span id="fmtBadge" class="pill info">&nbsp;</span>
+    <label for="selVersion">Display</label>
+    <select id="selVersion" title="Display version used to resolve pictures and font size"></select>
+    <label for="selLanguage">Language</label>
+    <select id="selLanguage" title="Language used to resolve text slides"></select>
+  </div>
+  <button class="ghost mini" id="btnTheme" title="Switch between dark and light">Light</button>
+  <button class="ghost mini" id="btnHome">Start</button>
+  <button class="ghost mini" id="btnReload" hidden>Open another</button>
+  <button class="good" id="btnExport" hidden>Export</button>
+</header>
+
+<div id="status" hidden></div>
+
+<nav class="tabs" id="tabbar">
+  <button data-tab="design" class="on">Design</button>
+  <button data-tab="stimuli">Stimuli</button>
+  <button data-tab="timeline">Timeline</button>
+  <button data-tab="calibrate">Calibrate</button>
+  <button data-tab="convert">Convert</button>
+  <button data-tab="files">Raw Files</button>
+  <button data-tab="validate">Validate</button>
+  <button data-tab="info">Information</button>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ LOADER ============ -->
+  <div id="loader">
+    <div id="drop">
+      <h2>Open an fMRI paradigm</h2>
+      <p class="mut">Drop a paradigm folder or one or more files here, or
+        <button class="primary" id="btnPickDir">Choose folder</button>
+        <button id="btnPickFiles">Choose files</button>
+        <button class="ghost" id="btnInfoOnly">Read the format guide</button>
+      </p>
+      <p class="mut" style="margin-top:14px">
+        Nothing to hand?
+        <button class="good" id="btnDemo">Open a working demo</button>
+        <button id="btnNew">Start a new paradigm</button>
+      </p>
+      <p class="hint" style="max-width:760px;margin:10px auto 0">
+        Everything runs locally in your browser. No file is uploaded anywhere, and nothing leaves this machine.
+        A folder is needed when the paradigm references pictures, audio or video, so that those assets can be
+        previewed and carried through on export.
+      </p>
+      <div class="fmtgrid">
+        <div class="f"><b>Paradigm folder (XML)</b><span>A main <code>.xml</code> with a <code>&lt;Session&gt;</code>, plus its trials, slides and defaults files and a picture folder.</span></div>
+        <div class="f"><b>Paradigm folder (JSON)</b><span>A single <code>.json</code> paradigm definition with its <code>pictures</code> and <code>audio</code> folders. Both known dialects are read.</span></div>
+        <div class="f"><b>BIDS events</b><span><code>_events.tsv</code> with <code>onset</code> and <code>duration</code> columns, and an optional <code>_events.json</code> sidecar.</span></div>
+        <div class="f"><b>FSL three column EV</b><span>Whitespace separated <code>onset duration weight</code>, one file per explanatory variable.</span></div>
+        <div class="f"><b>AFNI stimulus times</b><span>One row of onset times per run, as used by <code>3dDeconvolve -stim_times</code>.</span></div>
+        <div class="f"><b>Neutral paradigm JSON</b><span>This tool's own lossless interchange file, written by the Convert tab.</span></div>
+      </div>
+      <input type="file" id="fileDir" webkitdirectory directory multiple hidden>
+      <input type="file" id="fileAny" multiple hidden>
+    </div>
+    <div id="loadErr" class="mono" style="color:var(--bad);margin-top:12px;white-space:pre-wrap"></div>
+    <div id="loadNote" class="hint" style="margin-top:10px"></div>
+
+    <!-- brief overview, shown before anything is loaded -->
+    <div class="panel" id="startOverview" style="margin-top:18px">
+      <h3><span>About this tool</span></h3>
+      <div class="prose" style="max-width:none">
+        <p>fMRI Paradigm Studio reads a block-design paradigm, shows its timing and its stimuli,
+        validates it against the acquisition it declares, and converts it between the formats used
+        by presentation software and analysis packages. It runs entirely in the browser. Files are
+        read locally and nothing is transmitted.</p>
+        <div class="fmtgrid" style="margin-top:4px">
+          <div class="f"><b>View and edit together</b><span>Acquisition parameters, session order, blocks, trials and stimuli, with a live preview and timeline that update as you type.</span></div>
+          <div class="f"><b>Verify</b><span>Checks file syntax and internal references, and compares the length the design produces against the volume count the file declares.</span></div>
+          <div class="f"><b>Convert</b><span>Writes BIDS, FSL, AFNI, SPM, PsychoPy, Presentation, OpenSesame and scanner-side formats, each stating what it does not carry.</span></div>
+          <div class="f"><b>Calibrate</b><span>Turns a required on-screen size into the font size and picture dimensions to author at, for every display version.</span></div>
+        </div>
+        <p style="margin-top:12px" class="mut">Open the <b>Information</b> tab above for the format reference, what can and cannot be
+        converted, and how the scanner trigger is handled by each package. No file is needed to read it.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" hidden>
+    <section class="tab on" id="tab-design">
+      <div class="split">
+        <div class="leftcol" id="designLeft"></div>
+        <div class="rightcol" id="designRight"></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-stimuli">
+      <div class="split">
+        <div class="leftcol" id="stimLeft"></div>
+        <div class="rightcol" id="stimRight"></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-timeline"></section>
+    <section class="tab" id="tab-calibrate"></section>
+    <section class="tab" id="tab-convert"></section>
+    <section class="tab" id="tab-files"></section>
+    <section class="tab" id="tab-validate"></section>
+    <section class="tab" id="tab-info"></section>
+  </div>
+</div>
+
+<!-- ============ SHARED LIVE PREVIEW (moved between Design and Stimuli) ============ -->
+<div id="previewDock" hidden>
+  <div class="panel">
+    <h3><span>Live preview</span>
+      <span class="tools">
+        <label for="selPreviewMode" class="sr">Preview mode</label>
+        <select id="selPreviewMode" title="What the preview canvas shows">
+          <option value="run">Follow the run</option>
+          <option value="slide">Hold one stimulus</option>
+        </select>
+        <select id="selPreviewSlide" title="Stimulus to hold" hidden></select>
+      </span>
+    </h3>
+    <canvas id="player" class="screen"></canvas>
+    <div class="transport">
+      <button class="primary" id="btnPlay">Play</button>
+      <button id="btnRestart" title="Return to the start of the run">Restart</button>
+      <label for="selSpeed">Speed</label>
+      <select id="selSpeed" title="Playback rate. 1x is real time.">
+        <option value="1" selected>1x real time</option>
+        <option value="2">2x</option>
+        <option value="5">5x</option>
+        <option value="10">10x</option>
+        <option value="20">20x</option>
+        <option value="60">60x</option>
+      </select>
+      <label><input type="checkbox" id="chkAudio" checked> Audio</label>
+    </div>
+    <div class="transport">
+      <label for="scrub" class="sr">Scrub through the run</label>
+      <input id="scrub" type="range" min="0" max="1000" value="0" step="1">
+    </div>
+    <div class="nowinfo" id="nowInfo"></div>
+    <div class="hint" id="previewNote"></div>
+  </div>
+
+  <div class="panel">
+    <h3><span>Timeline</span><span class="tools" id="tlZoom"></span></h3>
+    <div id="miniTimeline"></div>
+    <div class="legend">
+      <span><i style="background:var(--rest)"></i>rest, condition 0</span>
+      <span><i style="background:var(--active)"></i>active, condition 1 and above</span>
+      <span><i style="background:var(--trig)"></i>scanner trigger</span>
+      <span class="mut">vertical grid marks each TR</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3><span>Display target</span></h3>
+    <div class="row">
+      <label for="scrW">Screen</label>
+      <input id="scrW" type="number" min="1" style="width:82px">
+      <span class="mut">x</span>
+      <input id="scrH" type="number" min="1" style="width:82px">
+      <span class="mut">px</span>
+      <button class="mini ghost" id="btnScrReset" title="Reset to the preset for this display version">Preset</button>
+    </div>
+    <div class="hint" id="screenNote"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<dialog id="pickDlg">
+  <div class="dlg-h" id="pickTitle">Choose</div>
+  <div class="dlg-b" id="pickBody"></div>
+  <div class="dlg-f"><button class="ghost" id="pickCancel">Cancel</button></div>
+</dialog>
+
+<dialog id="exportDlg">
+  <div class="dlg-h">Export paradigm</div>
+  <div class="dlg-b" id="exportBody"></div>
+  <div class="dlg-f">
+    <button class="ghost" id="exportCancel">Cancel</button>
+    <button class="ghost" id="exportFolder" title="Chromium browsers only">Save to folder</button>
+    <button class="good" id="exportZip">Download .zip</button>
+  </div>
+</dialog>
